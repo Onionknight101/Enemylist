@@ -100,6 +100,7 @@ local absorb_effects = {
 
 -- Windower's spell resources omit status metadata for the Poisonga line.
 local spell_debuff_overrides = {
+    [112] = {id = 156, duration = 12}, -- Flash
     [225] = {id = 3, duration = 90},  -- Poisonga
     [226] = {id = 3, duration = 120}, -- Poisonga II
     [227] = {id = 3, duration = 60},  -- Poisonga III
