@@ -1,0 +1,20 @@
+<?xml version="1.1" ?>
+<settings>
+    <global>
+        <enabled>true</enabled>
+        <values>
+            <Fourthrock_view_basic_enemy_list_clean>true</Fourthrock_view_basic_enemy_list_clean>
+            <Fourthrock_view_basic_enemy_list_x>197</Fourthrock_view_basic_enemy_list_x>
+            <Fourthrock_view_basic_enemy_list_y>554</Fourthrock_view_basic_enemy_list_y>
+            <fourthrock_view_basic_enemy_list_x>21</fourthrock_view_basic_enemy_list_x>
+            <fourthrock_view_basic_enemy_list_y>390</fourthrock_view_basic_enemy_list_y>
+        </values>
+    </global>
+    <fourthrock>
+        <values>
+            <Fourthrock_view_basic_enemy_list_clean>false</Fourthrock_view_basic_enemy_list_clean>
+            <fourthrock_view_basic_enemy_list_x>61</fourthrock_view_basic_enemy_list_x>
+            <fourthrock_view_basic_enemy_list_y>416</fourthrock_view_basic_enemy_list_y>
+        </values>
+    </fourthrock>
+</settings>
