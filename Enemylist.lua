@@ -75,22 +75,116 @@ local function track(mob)
 end
 local function mob_by_id(id) return windower.ffxi.get_mob_by_id(id) end
 
+local failed_debuff_messages = {
+    [75] = true,  -- no effect
+    [85] = true,  -- resisted
+    [284] = true, -- resisted (additional target)
+    [653] = true, -- immunobreak
+    [654] = true, -- immunobreak (additional target)
+    [655] = true, -- completely resisted
+    [656] = true, -- completely resisted (additional target)
+}
+
+-- Absorb stat spells do not expose a status in Windower's spell resources.
+-- Their success message identifies the matching Down effect on the target.
+local absorb_effects = {
+    [242] = {debuff_id = 146, buff_id = 90, message = 533},  -- Absorb-ACC
+    [266] = {debuff_id = 136, buff_id = 119, message = 329}, -- Absorb-STR
+    [267] = {debuff_id = 137, buff_id = 120, message = 330}, -- Absorb-DEX
+    [268] = {debuff_id = 138, buff_id = 121, message = 331}, -- Absorb-VIT
+    [269] = {debuff_id = 139, buff_id = 122, message = 332}, -- Absorb-AGI
+    [270] = {debuff_id = 140, buff_id = 123, message = 333}, -- Absorb-INT
+    [271] = {debuff_id = 141, buff_id = 124, message = 334}, -- Absorb-MND
+    [272] = {debuff_id = 142, buff_id = 125, message = 335}, -- Absorb-CHR
+}
+
+-- Windower's spell resources omit status metadata for the Poisonga line.
+local spell_debuff_overrides = {
+    [225] = {id = 3, duration = 90},  -- Poisonga
+    [226] = {id = 3, duration = 120}, -- Poisonga II
+    [227] = {id = 3, duration = 60},  -- Poisonga III
+    [228] = {id = 3, duration = 60},  -- Poisonga IV
+    [229] = {id = 3, duration = 60},  -- Poisonga V
+}
+
+local function applied_debuff(spell_id, result)
+    spell_id = tonumber(spell_id)
+    if not spell_id then return nil end
+    local message = tonumber(result.message)
+    if failed_debuff_messages[message] then return nil end
+    if tonumber(result.param) == 1 and tonumber(result.reaction) == 1 then return nil end -- blink/shadow
+
+    local absorb = absorb_effects[spell_id]
+    if absorb then
+        if message == absorb.message then return absorb.debuff_id, 60 end
+        return nil
+    end
+
+    local override = spell_debuff_overrides[spell_id]
+    if override then return override.id, override.duration end
+
+    local spell = resources.spells[spell_id]
+    local effect = spell and tonumber(spell.status)
+    local targets = spell and spell.targets
+    local targets_enemy = type(targets) == 'table' and targets.contains and targets:contains('Enemy')
+        or bit.band(tonumber(targets) or 0, 32) ~= 0
+    if effect and effect > 0 and targets_enemy then
+        return effect, tonumber(spell.duration) or 60
+    end
+end
+
+local function applied_absorb_buff(spell_id, result)
+    local absorb = absorb_effects[tonumber(spell_id)]
+    local message = tonumber(result.message)
+    if not absorb or message ~= absorb.message or failed_debuff_messages[message] then return nil end
+    if tonumber(result.param) == 1 and tonumber(result.reaction) == 1 then return nil end
+    return absorb.buff_id, 60
+end
+
+local function applied_spell_buff(spell_id, result)
+    spell_id = tonumber(spell_id)
+    if not spell_id or absorb_effects[spell_id] then return nil end
+    local message = tonumber(result.message)
+    if failed_debuff_messages[message] then return nil end
+    if tonumber(result.param) == 1 and tonumber(result.reaction) == 1 then return nil end
+
+    local spell = resources.spells[spell_id]
+    local effect = spell and tonumber(spell.status)
+    local effect_type = effect and RESOURCES:E('buff_types', effect)
+    if effect_type and effect_type.type == 'Buff' then
+        return effect, tonumber(spell.duration) or 60
+    end
+end
+
 windower.register_event('action', function(action)
     if not update_player() then return end
     local source = mob_by_id(action.actor_id)
     local source_is_party = party_ids[action.actor_id]
+    local source_entry
     for _, target in ipairs(action.targets or {}) do
-        if party_ids[target.id] then track(source) end
+        if party_ids[target.id] then source_entry = track(source) or source_entry end
         local entry = ACTOR_LIB.enemy[target.id]
         if source_is_party then entry = track(mob_by_id(target.id)) or entry end
-        if entry then
-            for _, result in ipairs(target.actions or {}) do
-                -- Only explicit successful status messages; never infer effects from a cast alone.
-                if result.message == 236 or result.message == 237 or result.message == 267 or result.message == 268 then
-                    local spell = action.category == 4 and resources.spells[action.param]
-                    local effect = spell and spell.status
-                    if effect and effect > 0 then entry.debuffs[effect] = {id = effect} end
+        for _, result in ipairs(target.actions or {}) do
+            if action.category == 4 then
+                if entry then
+                    local effect, duration = applied_debuff(action.param, result)
+                    if effect then
+                        entry.debuffs[effect] = {id = effect, end_time = os.time() + duration}
+                    end
+                    local buff, buff_duration = applied_spell_buff(action.param, result)
+                    if buff then
+                        entry.buffs[buff] = {id = buff, end_time = os.time() + buff_duration}
+                    end
                 end
+                if source_entry then
+                    local effect, duration = applied_absorb_buff(action.param, result)
+                    if effect then
+                        source_entry.buffs[effect] = {id = effect, end_time = os.time() + duration}
+                    end
+                end
+            end
+            if entry then
                 local message = tonumber(result.add_effect_message)
                 if message and message >= 288 and message <= 301 then
                     local prior = entry.skillchain
@@ -104,7 +198,11 @@ windower.register_event('action', function(action)
 end)
 windower.register_event('action message', function(_, target, _, _, message, effect)
     local entry = ACTOR_LIB.enemy[target]
-    if entry and (message == 204 or message == 206) then entry.debuffs[effect] = nil; refresh_view() end
+    if entry and (message == 204 or message == 206) then
+        entry.debuffs[effect] = nil
+        entry.buffs[effect] = nil
+        refresh_view()
+    end
 end)
 local function clear()
     ACTOR_LIB.enemy = {}
