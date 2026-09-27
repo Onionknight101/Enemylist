@@ -3,18 +3,16 @@
     <global>
         <enabled>true</enabled>
         <values>
-            <Fourthrock_view_basic_enemy_list_x>1227</Fourthrock_view_basic_enemy_list_x>
-            <Fourthrock_view_basic_enemy_list_y>615</Fourthrock_view_basic_enemy_list_y>
             <fourthrock_view_basic_enemy_list_clean>true</fourthrock_view_basic_enemy_list_clean>
-            <fourthrock_view_basic_enemy_list_x>21</fourthrock_view_basic_enemy_list_x>
-            <fourthrock_view_basic_enemy_list_y>390</fourthrock_view_basic_enemy_list_y>
+            <fourthrock_view_basic_enemy_list_x>1227</fourthrock_view_basic_enemy_list_x>
+            <fourthrock_view_basic_enemy_list_y>615</fourthrock_view_basic_enemy_list_y>
         </values>
     </global>
     <fourthrock>
         <values>
             <fourthrock_view_basic_enemy_list_clean>false</fourthrock_view_basic_enemy_list_clean>
-            <fourthrock_view_basic_enemy_list_x>61</fourthrock_view_basic_enemy_list_x>
-            <fourthrock_view_basic_enemy_list_y>416</fourthrock_view_basic_enemy_list_y>
+            <fourthrock_view_basic_enemy_list_x>1222</fourthrock_view_basic_enemy_list_x>
+            <fourthrock_view_basic_enemy_list_y>595</fourthrock_view_basic_enemy_list_y>
         </values>
     </fourthrock>
 </settings>

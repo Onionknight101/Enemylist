@@ -50,15 +50,29 @@ function view_settings_window.new(settings)
     function result:position_next_to(anchor)
         if not anchor then return end
         local x = anchor.x + anchor.width + self.gap
-        local screen_width = windower.get_windower_settings().ui_x_res
+        local y = anchor.y
+        local windower_settings = windower.get_windower_settings()
+        local screen_width = tonumber(windower_settings.ui_x_res) or self.region.width
+        local screen_height = tonumber(windower_settings.ui_y_res) or self.region.height
         if x + self.region.width > screen_width then
-            x = math.max(0, anchor.x - self.region.width - self.gap)
+            x = anchor.x - self.region.width - self.gap
         end
-        self.region:set_position(x, anchor.y)
+        x = math.max(0, math.min(x, math.max(0, screen_width - self.region.width)))
+        y = math.max(0, math.min(y, math.max(0, screen_height - self.region.height)))
+        self.region:set_position(x, y)
+    end
+
+    function result:clamp_to_screen()
+        local windower_settings = windower.get_windower_settings()
+        local screen_width = tonumber(windower_settings.ui_x_res) or self.region.width
+        local screen_height = tonumber(windower_settings.ui_y_res) or self.region.height
+        local x = math.max(0, math.min(self.region.base_x or 0, math.max(0, screen_width - self.region.width)))
+        local y = math.max(0, math.min(self.region.base_y or 0, math.max(0, screen_height - self.region.height)))
+        self.region:set_position(x, y)
     end
 
     function result:show(anchor)
-        if anchor then self:position_next_to(anchor) end
+        if anchor then self:position_next_to(anchor) else self:clamp_to_screen() end
         self.open = true
         self.region:show()
     end

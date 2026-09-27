@@ -30,8 +30,9 @@ function RESOURCES:NPC_FROM_ID(id)
     local entry = ACTOR_LIB.enemy[id]
     return entry and {id = id, name = entry.name, index = entry.index} or nil
 end
-function get_save_setting(key) return settings.values[key] end
+function get_save_setting(key) return settings.values[tostring(key):lower()] end
 function set_character_save_setting(_, _, key, value)
+    key = tostring(key):lower()
     settings.values[key] = value
     config.save(settings)
 end
