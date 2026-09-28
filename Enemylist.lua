@@ -164,7 +164,9 @@ windower.register_event('action', function(action)
     local source_is_party = party_ids[action.actor_id]
     local source_entry
     for _, target in ipairs(action.targets or {}) do
-        if party_ids[target.id] then source_entry = track(source) or source_entry end
+        if party_ids[target.id] then
+            source_entry = track(source) or source_entry
+        end
         local entry = ACTOR_LIB.enemy[target.id]
         if source_is_party then entry = track(mob_by_id(target.id)) or entry end
         for _, result in ipairs(target.actions or {}) do
@@ -247,7 +249,7 @@ windower.register_event('addon command', function(command)
         settings.enabled = command == 'show' or (command == 'toggle' and not settings.enabled)
         config.save(settings); MENU_UI.view_region:set_visibility(settings.enabled)
     elseif command == 'clear' then clear()
-    elseif command == 'style' and view then require('menu/views/shared_style').open(view)
-    else windower.add_to_chat(207, '[Enemylist] //enemylist show | hide | toggle | clear | style') end
+    elseif (command == 'style' or command == 'settings') and view then require('menu/views/shared_style').open(view)
+    else windower.add_to_chat(207, '[Enemylist] //enemylist show | hide | toggle | clear | style | settings') end
 end)
 init()

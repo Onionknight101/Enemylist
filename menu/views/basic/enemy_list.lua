@@ -5,12 +5,16 @@ local shared_style = shared.values
 
 local view_key = ACTOR_LIB.player.name .. '_view_basic_enemy_list'
 local clean_mode_key = view_key .. '_clean'
+local rows_per_page_key = view_key .. '_rows_per_page'
 local width = 330
 local inset = 6
 local column_height = 15
 local row_height = 28
 local footer_height = 20
-local rows_per_page = 10
+local min_rows_per_page = 3
+local max_rows_per_page = 10
+local rows_per_page = math.max(min_rows_per_page, math.min(max_rows_per_page,
+    math.floor(tonumber(get_save_setting(rows_per_page_key)) or max_rows_per_page)))
 local effect_icon_size = 12
 local compact_effect_icon_size = 10
 local effects_per_row = 10
@@ -20,7 +24,7 @@ local skillchain_icon_size = 10
 local skillchain_step_width = 7
 local skillchain_step_gap = 1
 local max_skillchain_icons = 3
-local height = column_height + row_height * rows_per_page + footer_height
+local height = column_height + row_height * max_rows_per_page + footer_height
 
 local region = ui.create_region({
     x = get_save_setting(view_key .. '_x') or 20,
@@ -93,7 +97,7 @@ add_column('HP', bar_x, bar_width)
 add_column('Effects', effects_x, width - effects_x - inset)
 
 local rows = {}
-for index = 1, rows_per_page do
+for index = 1, max_rows_per_page do
     local y = column_height + (index - 1) * row_height
     local row = ui.create_imageless_region({
         x = 0,
@@ -506,7 +510,7 @@ refresh = function()
     page_label:set_y(current_footer_y)
 
     for row_index, row in ipairs(rows) do
-        local entry = list[first + row_index - 1]
+        local entry = row_index <= rows_per_page and list[first + row_index - 1] or nil
         if entry then
             local ratio, hp_text = enemy_hp(entry.entry)
             row.name_label:set_text(entry.name)
@@ -538,6 +542,21 @@ refresh = function()
     region:update_absolute_position(true)
 end
 
+function region:get_enemylist_settings()
+    return {
+        rows_per_page = rows_per_page,
+    }
+end
+
+function region:set_enemylist_rows_per_page(value)
+    value = math.max(min_rows_per_page, math.min(max_rows_per_page, math.floor(tonumber(value) or rows_per_page)))
+    if rows_per_page == value then return end
+    rows_per_page = value
+    current_page = 1
+    set_character_save_setting('view_basic_enemy_list_rows_per_page', ACTOR_LIB.player.name, rows_per_page_key, value)
+    refresh()
+end
+
 EVENT_TRIGGER.set('enemy_update',
     {'spawn', 'pop', 'despawn', 'removed', 'reset', 'name', 'hpp', 'status', 'claim', 'buff', 'debuff', 'action_taken_sc'},
     'view_basic_enemy_list',
@@ -551,9 +570,7 @@ windower.register_event('prerender', function()
     local now = os.clock()
     if now < next_icon_refresh then return end
     next_icon_refresh = now + 0.5
-    for _, row in ipairs(rows) do
-        if row.enemy_entry then refresh_icons(row, row.enemy_entry) end
-    end
+    refresh()
 end)
 
 refresh()

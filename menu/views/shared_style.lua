@@ -96,10 +96,27 @@ function M.bind_frame(region)
 end
 
 local editor, draft, sliders, font_picker, font_button, status, main_page, style_picker, style_button
+local active_view
+local rows_slider, rows_label, rows_value
 local function show_main_page()
     if font_picker then font_picker:hide() end
     if style_picker then style_picker:hide() end
-    if main_page then main_page:show() end
+    if main_page then
+        main_page:show()
+        if rows_slider then
+            local supports_list_settings = active_view and active_view.get_enemylist_settings ~= nil
+            rows_slider:set_visibility(supports_list_settings)
+            rows_label:set_visibility(supports_list_settings)
+            rows_value:set_visibility(supports_list_settings)
+        end
+    end
+end
+local function sync_list_settings()
+    if not active_view or not active_view.get_enemylist_settings then return end
+    local values = active_view:get_enemylist_settings()
+    rows_slider.val = values.rows_per_page
+    rows_slider:update_slider_position()
+    rows_value:set_text(tostring(values.rows_per_page))
 end
 local function sync_controls()
     for _, role in ipairs(M.roles) do
@@ -132,13 +149,14 @@ local function preview_preset(name)
     return true
 end
 function M.open(anchor)
+    active_view = anchor
     if not editor then
         editor = require('menu/views/view_settings_window').new({
-            width = 470, height = 365, title = 'Shared view style',
+            width = 470, height = 400, title = 'View settings',
             name = 'shared_style_editor', parent = MENU_UI.view_region,
             on_hide = function() end_preview(); show_main_page() end,
         })
-        main_page = ui.create_imageless_region({x = 0, y = 0, width = 470, height = 365, draggable = false})
+        main_page = ui.create_imageless_region({x = 0, y = 0, width = 470, height = 400, draggable = false})
         editor:add(main_page)
         local function text(value, x, y, width)
             local label = ui.create_label({text = value, x = x, y = y, width = width, height = 20, size = 9})
@@ -204,7 +222,7 @@ function M.open(anchor)
                 style_picker:set_options(options)
                 main_page:hide()
                 style_picker:show()
-            end})
+        end})
         main_page:add(style_button)
         style_picker = ui.create_option_picker({x = 10, y = 29, width = 450, height = 320,
             title = 'Select base style', options = {}, rows_per_page = 10,
@@ -215,13 +233,26 @@ function M.open(anchor)
             end})
         editor:add(style_picker)
         style_picker:hide()
-        main_page:add(ui.create_button({x = 10, y = 310, width = 135, height = 23, label = 'Apply and save',
+
+        rows_label = text('Enemies per page', 10, 310, 125)
+        rows_value = text('10', 410, 310, 35)
+        rows_slider = ui.create_slider({x = 140, y = 310, length = 260, min = 3, max = 10, step = 1, val = 10,
+            on_change = function(value)
+                value = math.floor(tonumber(value) or 10)
+                rows_value:set_text(tostring(value))
+                if active_view and active_view.set_enemylist_rows_per_page then
+                    active_view:set_enemylist_rows_per_page(value)
+                end
+            end})
+        main_page:add(rows_slider)
+
+        main_page:add(ui.create_button({x = 10, y = 350, width = 135, height = 23, label = 'Apply and save',
             on_click = function()
                 local ok, err = M.save(draft)
                 status:set_text(ok and 'Saved for all shared views' or ('Save failed: ' .. tostring(err)))
             end}))
-        main_page:add(ui.create_button({x = 158, y = 310, width = 90, height = 23, label = 'Close', on_click = function() editor:hide() end}))
-        status = text('', 10, 339, 450)
+        main_page:add(ui.create_button({x = 158, y = 350, width = 90, height = 23, label = 'Close', on_click = function() editor:hide() end}))
+        status = text('', 10, 378, 450)
     end
     end_preview()
     preview_baseline = snapshot()
@@ -238,6 +269,7 @@ function M.open(anchor)
     font_button:set_text(draft.font)
     status:set_text('Live preview — Close discards unapplied changes')
     style_button:set_text('Select style...')
+    sync_list_settings()
     show_main_page()
     editor:show(anchor)
 end
