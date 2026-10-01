@@ -309,26 +309,56 @@ end
 local function active_effect_ids(entry)
     local result = {}
     local seen = {}
-    local now = os.time()
 
     local function add(id, effect, priority)
         id = tonumber(id)
         if not id or id < 0 or id == 255 or seen[id] then return end
-        local end_time = type(effect) == 'table' and tonumber(effect.end_time) or nil
-        if end_time and end_time > 0 and end_time <= now then return end
         seen[id] = true
         table.insert(result, {id = id, priority = priority})
     end
 
-    for _, effect in pairs(entry.buffs or {}) do
-        local id = type(effect) == 'table' and effect.id or effect
-        if tonumber(id) then
-            local info = RESOURCES:E('buff_types', tonumber(id))
-            add(id, effect, info and info.type == 'Debuff' and 1 or 2)
+    local function effect_priority(id, effect, fallback)
+        if type(effect) == 'table' and effect.is_buff ~= nil then
+            return effect.is_buff == false and 1 or 2
+        end
+        local info = RESOURCES:E('buff_types', tonumber(id))
+        if info and info.type then return info.type == 'Debuff' and 1 or 2 end
+        return fallback
+    end
+
+    local function add_array(collection, fallback)
+        for _, effect in pairs(collection or {}) do
+            local id = type(effect) == 'table' and effect.id or effect
+            if tonumber(id) then
+                add(id, effect, effect_priority(id, effect, fallback))
+            end
         end
     end
-    for id, effect in pairs(entry.debuffs or {}) do
-        if effect then add(id, effect, 1) end
+
+    local function add_keyed(collection, fallback)
+        for key, effect in pairs(collection or {}) do
+            if effect then
+                local id = type(effect) == 'table' and effect.id or nil
+                id = id or key
+                if tonumber(id) then
+                    add(id, effect, effect_priority(id, effect, fallback))
+                end
+            end
+        end
+    end
+
+    add_array(entry.buffs, 2)
+    add_array(entry.aura_buffs, 2)
+    add_keyed(entry.debuffs, 1)
+    add_keyed(entry.event_debuffs, 1)
+    add_keyed(entry.event_buffs, 2)
+    if buff and buff.enemy_aura_list then
+        local ok, positional = pcall(function()
+            return select(1, buff.enemy_aura_list(entry))
+        end)
+        if ok and type(positional) == 'table' then
+            for _, id in ipairs(positional) do add(id, id, 1) end
+        end
     end
 
     table.sort(result, function(left, right)
