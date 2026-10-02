@@ -98,6 +98,10 @@ end
 local editor, draft, sliders, font_picker, font_button, status, main_page, style_picker, style_button
 local active_view
 local rows_slider, rows_label, rows_value
+local scale_slider, scale_label, scale_value
+local draft_scale
+local backend_button, draft_backend, backend_baseline
+local scale_preview_generation = 0
 local function show_main_page()
     if font_picker then font_picker:hide() end
     if style_picker then style_picker:hide() end
@@ -108,6 +112,9 @@ local function show_main_page()
             rows_slider:set_visibility(supports_list_settings)
             rows_label:set_visibility(supports_list_settings)
             rows_value:set_visibility(supports_list_settings)
+            scale_slider:set_visibility(supports_list_settings)
+            scale_label:set_visibility(supports_list_settings)
+            scale_value:set_visibility(supports_list_settings)
         end
     end
 end
@@ -117,6 +124,11 @@ local function sync_list_settings()
     rows_slider.val = values.rows_per_page
     rows_slider:update_slider_position()
     rows_value:set_text(tostring(values.rows_per_page))
+    draft_scale = values.ui_scale or 100
+    scale_preview_generation = scale_preview_generation + 1
+    scale_slider.val = draft_scale
+    scale_slider:update_slider_position()
+    scale_value:set_text(tostring(draft_scale) .. '%')
 end
 local function sync_controls()
     for _, role in ipairs(M.roles) do
@@ -152,11 +164,22 @@ function M.open(anchor)
     active_view = anchor
     if not editor then
         editor = require('menu/views/view_settings_window').new({
-            width = 470, height = 400, title = 'View settings',
+            width = 470, height = 470, title = 'View settings',
             name = 'shared_style_editor', parent = MENU_UI.view_region,
-            on_hide = function() end_preview(); show_main_page() end,
+            on_hide = function()
+                scale_preview_generation = scale_preview_generation + 1
+                end_preview()
+                if backend_baseline then
+                    ui.set_renderer(backend_baseline)
+                    backend_baseline = nil
+                end
+                if active_view and active_view.reset_enemylist_ui_scale_preview then
+                    active_view:reset_enemylist_ui_scale_preview()
+                end
+                show_main_page()
+            end,
         })
-        main_page = ui.create_imageless_region({x = 0, y = 0, width = 470, height = 400, draggable = false})
+        main_page = ui.create_imageless_region({x = 0, y = 0, width = 470, height = 470, draggable = false})
         editor:add(main_page)
         local function text(value, x, y, width)
             local label = ui.create_label({text = value, x = x, y = y, width = width, height = 20, size = 9})
@@ -246,13 +269,60 @@ function M.open(anchor)
             end})
         main_page:add(rows_slider)
 
-        main_page:add(ui.create_button({x = 10, y = 350, width = 135, height = 23, label = 'Apply and save',
+        scale_label = text('Overall size', 10, 340, 125)
+        scale_value = text('100%', 410, 340, 50)
+        scale_slider = ui.create_slider({x = 140, y = 340, length = 260,
+            min = 60, max = 400, step = 10, val = 100,
+            on_change = function(value)
+                value = math.floor(tonumber(value) or 100)
+                draft_scale = value
+                scale_value:set_text(tostring(value) .. '%')
+                scale_preview_generation = scale_preview_generation + 1
+                local generation = scale_preview_generation
+                coroutine.schedule(function()
+                    if generation == scale_preview_generation
+                            and active_view and active_view.preview_enemylist_ui_scale then
+                        active_view:preview_enemylist_ui_scale(value)
+                    end
+                end, 0.08)
+                status:set_text('Pending size — Apply and save to keep changes')
+            end})
+        main_page:add(scale_slider)
+
+        text('UI backend', 10, 370, 125)
+        backend_button = ui.create_button({x = 140, y = 367, width = 260,
+            height = 23, label = 'Windower', on_click = function()
+                draft_backend = draft_backend == 'directx' and 'windower' or 'directx'
+                backend_button:set_text(draft_backend == 'directx' and 'DirectX' or 'Windower')
+                local ok, message = ui.set_renderer(draft_backend)
+                status:set_text(ok
+                    and 'Backend preview'
+                    or ('Backend preview failed: ' .. tostring(message)))
+            end})
+        main_page:add(backend_button)
+
+        main_page:add(ui.create_button({x = 10, y = 410, width = 135, height = 23, label = 'Apply and save',
             on_click = function()
+                scale_preview_generation = scale_preview_generation + 1
                 local ok, err = M.save(draft)
-                status:set_text(ok and 'Saved for all shared views' or ('Save failed: ' .. tostring(err)))
+                if ok and active_view and active_view.set_enemylist_ui_scale and draft_scale then
+                    active_view:set_enemylist_ui_scale(draft_scale)
+                end
+                if ok and draft_backend then
+                    local backend_ok, backend_message = ui.set_renderer(draft_backend)
+                    if backend_ok then
+                        set_save_setting('ui', 0, 'ui_renderer', draft_backend)
+                        backend_baseline = draft_backend
+                        status:set_text('Saved — ' .. tostring(backend_message))
+                    else
+                        status:set_text('Backend failed: ' .. tostring(backend_message))
+                    end
+                else
+                    status:set_text('Save failed: ' .. tostring(err))
+                end
             end}))
-        main_page:add(ui.create_button({x = 158, y = 350, width = 90, height = 23, label = 'Close', on_click = function() editor:hide() end}))
-        status = text('', 10, 378, 450)
+        main_page:add(ui.create_button({x = 158, y = 410, width = 90, height = 23, label = 'Close', on_click = function() editor:hide() end}))
+        status = text('', 10, 438, 450)
     end
     end_preview()
     preview_baseline = snapshot()
@@ -267,6 +337,10 @@ function M.open(anchor)
     end
     font_picker:set_selected_value(draft.font)
     font_button:set_text(draft.font)
+    local _, requested_backend = ui.get_renderer()
+    draft_backend = requested_backend == 'directx' and 'directx' or 'windower'
+    backend_baseline = draft_backend
+    backend_button:set_text(draft_backend == 'directx' and 'DirectX' or 'Windower')
     status:set_text('Live preview — Close discards unapplied changes')
     style_button:set_text('Select style...')
     sync_list_settings()

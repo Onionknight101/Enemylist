@@ -2,7 +2,16 @@
 require('base/ui/prim/images_prim')
 local defaults = require('base/ui/ui_defaults')
 local ui_base = require('base/ui/ui_base')
+local renderer = require('base/ui/render_backend')
 local ui = {}
+
+-- Public renderer API for addons and UI modules. Existing element factories
+-- work unchanged; only their drawing backend changes.
+ui.renderer = renderer
+function ui.set_renderer(mode) return renderer.set_mode(mode) end
+function ui.get_renderer() return renderer.get_mode() end
+function ui.renderer_status() return renderer.status() end
+function ui.flush_renderer() return renderer.flush() end
 
 -- Container voor actieve elementen
 ui.elements = require('base/ui/ui_root')

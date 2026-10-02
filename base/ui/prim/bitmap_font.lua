@@ -14,7 +14,7 @@
 -- left are overal kerning towards all characters
 -- kerning pairs are individual kerning to a character
 
-return {
+local fonts = {
 	['base'] = {
 		['folder'] = windower.addon_path..'base/ui/font_metrics/base',
 		['basePixelSize'] = 48,
@@ -243,3 +243,62 @@ return {
 		}
 	}
 }
+
+-- Consolas is monospaced. Its atlas is generated at 48 px by
+-- tools/generate_bitmap_font.ps1; every printable glyph shares one advance.
+-- 24.5 at the 48 px atlas size matches Windower's Consolas advance at the
+-- calibrated 1.5 text scale (the raster itself is 30 px wide).
+local consolas_letters = {}
+for byte = 32, 126 do
+	consolas_letters[byte] = {size = 24.5, left = 0, kerning = {}}
+end
+fonts.Consolas = {
+	folder = windower.addon_path .. 'base/ui/font_metrics/consolas',
+	basePixelSize = 48,
+	between = 0,
+	minimumLineSpacing = 0,
+	verticalSpacing = 0,
+	letter = consolas_letters,
+}
+
+local function generated_font(folder_name, fallback_width, base_pixel_size)
+	local path = windower.addon_path .. 'base/ui/font_metrics/' .. folder_name
+	local widths = {}
+	local loader = loadfile(path .. '/metrics.lua')
+	if loader then
+		local ok, loaded = pcall(loader)
+		if ok and type(loaded) == 'table' then widths = loaded end
+	end
+	local letters = {}
+	for byte = 32, 126 do
+		letters[byte] = {
+			size = tonumber(widths[byte]) or fallback_width,
+			left = 0,
+			kerning = {},
+		}
+	end
+	return {
+		folder = path,
+		basePixelSize = base_pixel_size or 48,
+		between = 0,
+		minimumLineSpacing = 0,
+		verticalSpacing = 0,
+		letter = letters,
+	}
+end
+
+fonts['Trebuchet MS'] = generated_font('trebuchet_ms', 26)
+fonts.Trebuchet = fonts['Trebuchet MS']
+fonts.Verdana = generated_font('verdana', 26)
+fonts.Tahoma = generated_font('tahoma', 26)
+fonts['Segoe UI'] = generated_font('segoe_ui', 26)
+
+-- Public aliases used by the renderer's font-family mapper.
+-- The DirectX backend benefits from the 96 px source when shrinking Arial to
+-- UI sizes: it gives the mip filter enough coverage detail to avoid blocky
+-- edge artifacts. Keep `base` intact for legacy bitmap-label users.
+fonts.Arial = fonts.base96
+fonts.Arial.bold_font = generated_font('arial_bold96', 58, 96)
+fonts.Helvetica = fonts.base96 -- Helvetica is not installed; Arial is its fallback.
+
+return fonts

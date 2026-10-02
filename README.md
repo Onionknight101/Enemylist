@@ -10,6 +10,7 @@ Names and HP percentages come from Windower's live mob data. Enemies beyond 50 y
 Commands: `//enemylist show`, `hide`, `toggle`, `clear`, `style`, `settings` (also `//elist`).
 Right-drag moves the view; middle-click toggles the background; double-click opens its own style editor.
 The main settings page sets 3–10 enemies per page.
+The focused target is shown in a separate panel above the paginated rows.
 Styles and saved positions belong to Enemylist, not Actor. No item use, movement, or combat automation is included.
 
 Test limitations: this does not include Actor's complete combat model. It shows observed successful spell debuffs and skillchain results, not effects applied before loading or every buff/debuff source. No predicted skillchain openings or exact HP totals. Reload after switching characters. Use the game as authoritative for effect expiry.

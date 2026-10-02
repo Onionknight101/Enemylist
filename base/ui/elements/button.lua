@@ -50,6 +50,7 @@ return function(setting)
         layout_div_y = setting.layout_div_y or 0,
         width = width,
         height = height,
+        font_size = font_size,
         visible = true,
         text_object = txt_prim,
         bg_object = bg,
@@ -69,7 +70,7 @@ return function(setting)
         self.text_object:set_text(new_text)
 
         coroutine.schedule(function()
-            local width = ui.get_text_width(new_text, self.text_object:get_font() or 'Arial', font_size)
+            local width = ui.get_text_width(new_text, self.text_object:get_font() or 'Arial', self.font_size)
             if self.auto_width then
                 self.width = math.floor(width + 10)
             end
@@ -82,6 +83,14 @@ return function(setting)
 
             self:update_absolute_position()
         end, 0.05)
+    end
+
+    function button:set_font_size(size)
+        size = tonumber(size)
+        if not size or size <= 0 or self.font_size == size then return end
+        self.font_size = size
+        self.text_object:set_size(size)
+        self:update_absolute_position()
     end
 
     function button:update_absolute_position()
@@ -107,7 +116,7 @@ return function(setting)
 
         local lines = 1
         for _ in text:gmatch('\n') do lines = lines + 1 end
-        local total_text_height = lines * font_size
+        local total_text_height = lines * self.font_size
 
         local cy = math.floor((self.height - total_text_height) / 2) + offset
         local baseline = self.text_object:get_baseline() or 0

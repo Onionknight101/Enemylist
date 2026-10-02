@@ -5,16 +5,19 @@
         <values>
             <fourthrock_view_basic_enemy_list_clean>true</fourthrock_view_basic_enemy_list_clean>
             <fourthrock_view_basic_enemy_list_rows_per_page>9</fourthrock_view_basic_enemy_list_rows_per_page>
+            <fourthrock_view_basic_enemy_list_ui_scale>90</fourthrock_view_basic_enemy_list_ui_scale>
             <fourthrock_view_basic_enemy_list_x>1227</fourthrock_view_basic_enemy_list_x>
             <fourthrock_view_basic_enemy_list_y>615</fourthrock_view_basic_enemy_list_y>
+            <ui_renderer>directx</ui_renderer>
         </values>
     </global>
     <fourthrock>
         <values>
             <fourthrock_view_basic_enemy_list_clean>false</fourthrock_view_basic_enemy_list_clean>
             <fourthrock_view_basic_enemy_list_rows_per_page>3</fourthrock_view_basic_enemy_list_rows_per_page>
-            <fourthrock_view_basic_enemy_list_x>718</fourthrock_view_basic_enemy_list_x>
-            <fourthrock_view_basic_enemy_list_y>572</fourthrock_view_basic_enemy_list_y>
+            <fourthrock_view_basic_enemy_list_ui_scale>390</fourthrock_view_basic_enemy_list_ui_scale>
+            <fourthrock_view_basic_enemy_list_x>265</fourthrock_view_basic_enemy_list_x>
+            <fourthrock_view_basic_enemy_list_y>403</fourthrock_view_basic_enemy_list_y>
         </values>
     </fourthrock>
 </settings>

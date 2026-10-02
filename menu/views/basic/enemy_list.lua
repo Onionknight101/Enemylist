@@ -6,24 +6,34 @@ local shared_style = shared.values
 local view_key = ACTOR_LIB.player.name .. '_view_basic_enemy_list'
 local clean_mode_key = view_key .. '_clean'
 local rows_per_page_key = view_key .. '_rows_per_page'
-local width = 330
-local inset = 6
-local column_height = 15
-local row_height = 28
-local footer_height = 20
+local ui_scale_key = view_key .. '_ui_scale'
+local min_ui_scale = 60
+local max_ui_scale = 400
+local ui_scale_percent = math.max(min_ui_scale, math.min(max_ui_scale,
+    math.floor(tonumber(get_save_setting(ui_scale_key)) or 100)))
+local saved_ui_scale_percent = ui_scale_percent
+local ui_scale = ui_scale_percent / 100
+local function scaled(value) return math.max(1, math.floor(value * ui_scale + 0.5)) end
+local width = scaled(330)
+local inset = scaled(6)
+local column_height = scaled(15)
+local row_height = scaled(28)
+local footer_height = scaled(20)
 local min_rows_per_page = 3
 local max_rows_per_page = 10
 local rows_per_page = math.max(min_rows_per_page, math.min(max_rows_per_page,
     math.floor(tonumber(get_save_setting(rows_per_page_key)) or max_rows_per_page)))
-local effect_icon_size = 12
-local compact_effect_icon_size = 10
+local effect_icon_size = scaled(12)
+local compact_effect_icon_size = scaled(10)
 local effects_per_row = 10
 local max_effect_icons = effects_per_row * 2
-local claim_icon_size = 9
-local skillchain_icon_size = 10
-local skillchain_step_width = 7
-local skillchain_step_gap = 1
+local claim_icon_size = scaled(9)
+local skillchain_icon_size = scaled(10)
+local skillchain_step_width = scaled(7)
+local skillchain_step_gap = scaled(1)
 local max_skillchain_icons = 3
+local target_panel_height = row_height + scaled(4)
+local target_panel_gap = scaled(6)
 local height = column_height + row_height * max_rows_per_page + footer_height
 
 local region = ui.create_region({
@@ -37,6 +47,18 @@ local region = ui.create_region({
     draggable = true,
     name = 'enemy_list',
 })
+
+local target_region = ui.create_region({
+    x = 0,
+    y = -target_panel_height - target_panel_gap,
+    width = width,
+    height = target_panel_height,
+    bg_color = shared_style.background,
+    outline_color = shared_style.outline,
+    draggable = false,
+    name = 'enemy_list_target',
+})
+region:add(target_region)
 
 region.on_region_drag_end = function(self)
     set_character_save_setting('view_basic_enemy_list_x', ACTOR_LIB.player.name, view_key .. '_x', self.x)
@@ -71,12 +93,13 @@ local function bounded_label(settings)
 end
 
 local claim_icon_x = inset
-local name_x = claim_icon_x + claim_icon_size + 3
-local name_width = 100
-local bar_x = name_x + name_width + 2
-local bar_width = 76
+local name_x = claim_icon_x + claim_icon_size + scaled(3)
+local name_width = scaled(100)
+local bar_x = name_x + name_width + scaled(2)
+local bar_width = scaled(76)
 local skillchain_x = bar_x
-local effects_x = bar_x + bar_width + 4
+local effects_x = bar_x + bar_width + scaled(4)
+local columns = {}
 
 local function add_column(text, x, column_width, align)
     local column = bounded_label({
@@ -85,20 +108,21 @@ local function add_column(text, x, column_width, align)
         width = column_width,
         height = column_height,
         text = text,
-        size = 8,
+        size = scaled(8),
         color = shared_style.muted,
         horizontal_align = align or 'left',
     })
     region:add(column)
+    columns[#columns + 1] = column
+    return column
 end
 
 add_column('Enemy / ID', name_x, name_width)
 add_column('HP', bar_x, bar_width)
 add_column('Effects', effects_x, width - effects_x - inset)
 
-local rows = {}
-for index = 1, max_rows_per_page do
-    local y = column_height + (index - 1) * row_height
+local function create_row(y, parent)
+    parent = parent or region
     local row = ui.create_imageless_region({
         x = 0,
         y = y,
@@ -109,55 +133,63 @@ for index = 1, max_rows_per_page do
 
     row.claim_icon = ui.create_image({
         x = claim_icon_x,
-        y = 3,
+        y = scaled(3),
         width = claim_icon_size,
         height = claim_icon_size,
         path = windower.addon_path .. 'media/ui/dot_white.png',
     })
+    row.focus_icon = ui.create_image({
+        x = claim_icon_x,
+        y = scaled(14),
+        width = scaled(9),
+        height = scaled(9),
+        path = windower.addon_path .. 'media/ui/focus_marker.png',
+    })
+    row.focus_icon:hide()
     row.name_label = bounded_label({
         x = name_x,
         y = 0,
         width = name_width,
-        height = 15,
+        height = scaled(15),
         text = '',
-        size = 9,
+        size = scaled(9),
         color = shared_style.text,
     })
     row.id_label = bounded_label({
-        x = name_x + 2,
-        y = 13,
-        width = name_width - 2,
-        height = 12,
+        x = name_x + scaled(2),
+        y = scaled(13),
+        width = name_width - scaled(2),
+        height = scaled(12),
         text = '',
-        size = 7,
+        size = scaled(7),
         color = shared_style.muted,
     })
     row.hp_bar = ui.create_progressbar({
         x = bar_x,
-        y = 5,
+        y = scaled(5),
         width = bar_width,
-        height = 8,
+        height = scaled(8),
         bg_image = windower.addon_path .. 'media/ui/bar.png',
         fill_image = windower.addon_path .. 'media/ui/bar_fill_hp.png',
     })
-    row.hp_bar:set_fill_margin(4, 5, 0, 0)
+    row.hp_bar:set_fill_margin(scaled(2), scaled(3), 0, 0)
     row.hp_label = bounded_label({
         x = bar_x,
-        y = 13,
+        y = scaled(13),
         width = bar_width,
-        height = 12,
+        height = scaled(12),
         text = '',
-        size = 7,
+        size = scaled(7),
         horizontal_align = 'right',
         color = shared_style.text,
     })
     row.skillchain_step_label = bounded_label({
         x = skillchain_x,
-        y = 15,
+        y = scaled(15),
         width = skillchain_step_width,
         height = skillchain_icon_size,
         text = '',
-        size = 7,
+        size = scaled(7),
         horizontal_align = 'right',
         color = shared_style.text,
     })
@@ -166,8 +198,8 @@ for index = 1, max_rows_per_page do
     for icon_index = 1, max_skillchain_icons do
         local icon = ui.create_image({
             x = skillchain_x + skillchain_step_width + skillchain_step_gap
-                + (icon_index - 1) * (skillchain_icon_size + 1),
-            y = 15,
+                + (icon_index - 1) * (skillchain_icon_size + scaled(1)),
+            y = scaled(15),
             width = skillchain_icon_size,
             height = skillchain_icon_size,
             path = '',
@@ -179,7 +211,7 @@ for index = 1, max_rows_per_page do
     for icon_index = 1, max_effect_icons do
         local icon = ui.create_image({
             x = effects_x + (icon_index - 1) * effect_icon_size,
-            y = 7,
+            y = scaled(7),
             width = effect_icon_size,
             height = effect_icon_size,
             path = '',
@@ -189,6 +221,7 @@ for index = 1, max_rows_per_page do
     end
 
     row:add(row.claim_icon)
+    row:add(row.focus_icon)
     row:add(row.name_label)
     row:add(row.id_label)
     row:add(row.hp_bar)
@@ -196,8 +229,17 @@ for index = 1, max_rows_per_page do
     row:add(row.skillchain_step_label)
     for _, icon in ipairs(row.skillchain_icons) do row:add(icon) end
     for _, icon in ipairs(row.effect_icons) do row:add(icon) end
-    region:add(row)
-    rows[index] = row
+    parent:add(row)
+    return row
+end
+
+local pinned_row = create_row(scaled(2), target_region)
+pinned_row.id_label:set_position(claim_icon_x, scaled(13))
+pinned_row.id_label:set_width(bar_x - claim_icon_x - scaled(2))
+pinned_row:hide()
+local rows = {}
+for index = 1, max_rows_per_page do
+    rows[index] = create_row(column_height + (index - 1) * row_height)
 end
 
 local current_page = 1
@@ -208,8 +250,9 @@ local footer_y = height - footer_height
 local previous_button = ui.create_button({
     x = inset,
     y = footer_y,
-    width = 20,
-    height = 16,
+    width = scaled(20),
+    height = scaled(16),
+    size = scaled(8),
     label = '<',
     on_click = function()
         current_page = math.max(1, current_page - 1)
@@ -219,10 +262,11 @@ local previous_button = ui.create_button({
 region:add(previous_button)
 
 local next_button = ui.create_button({
-    x = previous_button:get_relative_right() + 3,
+    x = previous_button:get_relative_right() + scaled(3),
     y = footer_y,
-    width = 20,
-    height = 16,
+    width = scaled(20),
+    height = scaled(16),
+    size = scaled(8),
     label = '>',
     on_click = function()
         current_page = math.min(total_pages, current_page + 1)
@@ -232,12 +276,12 @@ local next_button = ui.create_button({
 region:add(next_button)
 
 local page_label = bounded_label({
-    x = next_button:get_relative_right() + 5,
+    x = next_button:get_relative_right() + scaled(5),
     y = footer_y,
-    width = 80,
-    height = 16,
+    width = scaled(80),
+    height = scaled(16),
     text = '1 / 1',
-    size = 8,
+    size = scaled(8),
     color = shared_style.muted,
 })
 region:add(page_label)
@@ -249,6 +293,9 @@ local function apply_clean_mode(enabled)
     region.bg_prim.always_hidden = enabled
     region.bg_prim:update_draw_visibility(region:is_drawn())
     region.outline:set_visibility(not enabled)
+    target_region.bg_prim.always_hidden = enabled
+    target_region.bg_prim:update_draw_visibility(target_region:is_drawn())
+    target_region.outline:set_visibility(not enabled)
 end
 
 local function set_clean_mode(enabled)
@@ -468,11 +515,11 @@ local function refresh_icons(row, entry)
             local effect_row = compact and math.floor((index - 1) / effects_per_row) or 0
             icon:set_position(
                 effects_x + column * (icon_size + icon_gap),
-                compact and (2 + effect_row * (icon_size + 2)) or 7
+                compact and (scaled(2) + effect_row * (icon_size + scaled(2))) or scaled(7)
             )
             if icon.width ~= icon_size or icon.height ~= icon_size then
                 icon:set_size(icon_size, icon_size)
-                icon:on_size_change()
+                if icon.on_size_change then icon:on_size_change() end
             end
             if icon.effect_id ~= effect.id then
                 icon:set_image(windower.addon_path .. 'media/icons/' .. effect.id .. '.png')
@@ -488,6 +535,7 @@ end
 
 local function hide_icons(row)
     row.claim_icon:hide()
+    row.focus_icon:hide()
     row.skillchain_step_label:hide()
     for _, icon in ipairs(row.skillchain_icons) do
         icon:hide()
@@ -520,8 +568,46 @@ local function enemies()
     return result
 end
 
+local function pinned_target_id()
+    local target = windower.ffxi.get_mob_by_target('t')
+    return target and tonumber(target.id) or nil
+end
+
+local function show_enemy_row(row, item, pinned, focused)
+    local ratio, hp_text = enemy_hp(item.entry)
+    row.name_label:set_text(item.name)
+    set_enemy_name_color(row, item.entry)
+    row.id_label:set_text((pinned and 'TARGET  ID ' or 'ID ') .. tostring(item.id))
+    row.hp_bar:set_value(ratio)
+    row.hp_label:set_text(hp_text)
+    row.enemy_entry = item.entry
+    refresh_icons(row, item.entry)
+    if focused then row.focus_icon:show() else row.focus_icon:hide() end
+    row.hp_bar:show()
+    row:show()
+end
+
 refresh = function()
     local list = enemies()
+    local target_id = pinned_target_id()
+    local pinned_item
+    if target_id then
+        for index, item in ipairs(list) do
+            if item.id == target_id then
+                pinned_item = item
+                break
+            end
+        end
+    end
+    if pinned_item then
+        target_region:show()
+        show_enemy_row(pinned_row, pinned_item, true, false)
+    else
+        pinned_row.enemy_entry = nil
+        hide_icons(pinned_row)
+        target_region:hide()
+    end
+
     total_pages = math.max(1, math.ceil(#list / rows_per_page))
     current_page = math.max(1, math.min(current_page, total_pages))
     page_label:set_text(tostring(current_page) .. ' / ' .. tostring(total_pages))
@@ -540,17 +626,13 @@ refresh = function()
     page_label:set_y(current_footer_y)
 
     for row_index, row in ipairs(rows) do
+        -- Images are independent primitives, so clear the marker before reusing a row
+        -- on another page.
+        row.focus_icon:hide()
+        row:set_y(column_height + (row_index - 1) * row_height)
         local entry = row_index <= rows_per_page and list[first + row_index - 1] or nil
         if entry then
-            local ratio, hp_text = enemy_hp(entry.entry)
-            row.name_label:set_text(entry.name)
-            set_enemy_name_color(row, entry.entry)
-            row.id_label:set_text('ID ' .. tostring(entry.id))
-            row.hp_bar:set_value(ratio)
-            row.hp_label:set_text(hp_text)
-            row.enemy_entry = entry.entry
-            refresh_icons(row, entry.entry)
-            row:show()
+            show_enemy_row(row, entry, false, entry.id == target_id)
         elseif #list == 0 and row_index == 1 then
             row.name_label:set_text('No enemies tracked')
             row.name_label.txt_obj:set_color(
@@ -572,10 +654,129 @@ refresh = function()
     region:update_absolute_position(true)
 end
 
+local function force_geometry(element, x, y, element_width, element_height)
+    element.base_x = x
+    element.base_y = y
+    element.width = element_width
+    element.height = element_height
+end
+
+local function layout_label(label, x, y, label_width, label_height, font_size)
+    local value = label.full_text or label:get_text()
+    label.font_size = font_size
+    label.txt_obj:set_size(font_size)
+    force_geometry(label, x, y, label_width, label_height)
+    label.full_text = nil
+    label:set_text(value)
+end
+
+local function layout_button(button, x, y, button_width, button_height, font_size)
+    button:set_position(x, y)
+    button:set_size(button_width, button_height)
+    button:set_font_size(font_size)
+    button:update_absolute_position()
+end
+
+local function layout_row(row, y, pinned)
+    force_geometry(row, 0, y, width, row_height)
+    force_geometry(row.claim_icon, claim_icon_x, scaled(3), claim_icon_size, claim_icon_size)
+    force_geometry(row.focus_icon, claim_icon_x, scaled(14), scaled(9), scaled(9))
+    layout_label(row.name_label, name_x, 0, name_width, scaled(15), scaled(9))
+    layout_label(row.id_label,
+        pinned and claim_icon_x or name_x + scaled(2), scaled(13),
+        pinned and (bar_x - claim_icon_x - scaled(2)) or (name_width - scaled(2)),
+        scaled(12), scaled(7))
+    force_geometry(row.hp_bar, bar_x, scaled(5), bar_width, scaled(8))
+    local bar_background = row.hp_bar.bg_object or row.hp_bar.children[1]
+    if bar_background then bar_background:set_size(bar_width, scaled(8)) end
+    row.hp_bar:set_fill_margin(scaled(2), scaled(3), 0, 0)
+    row.hp_bar:on_refresh()
+    layout_label(row.hp_label, bar_x, scaled(13), bar_width, scaled(12), scaled(7))
+    layout_label(row.skillchain_step_label, skillchain_x, scaled(15),
+        skillchain_step_width, skillchain_icon_size, scaled(7))
+    for icon_index, icon in ipairs(row.skillchain_icons) do
+        force_geometry(icon, skillchain_x + skillchain_step_width + skillchain_step_gap
+            + (icon_index - 1) * (skillchain_icon_size + scaled(1)), scaled(15),
+            skillchain_icon_size, skillchain_icon_size)
+    end
+end
+
+local function apply_ui_scale(value)
+    value = math.max(min_ui_scale, math.min(max_ui_scale,
+        math.floor((tonumber(value) or ui_scale_percent) / 10 + 0.5) * 10))
+    if ui_scale_percent == value then return end
+    ui_scale_percent = value
+    ui_scale = value / 100
+
+    width = scaled(330)
+    inset = scaled(6)
+    column_height = scaled(15)
+    row_height = scaled(28)
+    footer_height = scaled(20)
+    effect_icon_size = scaled(12)
+    compact_effect_icon_size = scaled(10)
+    claim_icon_size = scaled(9)
+    skillchain_icon_size = scaled(10)
+    skillchain_step_width = scaled(7)
+    skillchain_step_gap = scaled(1)
+    target_panel_height = row_height + scaled(4)
+    target_panel_gap = scaled(6)
+    height = column_height + row_height * max_rows_per_page + footer_height
+    claim_icon_x = inset
+    name_x = claim_icon_x + claim_icon_size + scaled(3)
+    name_width = scaled(100)
+    bar_x = name_x + name_width + scaled(2)
+    bar_width = scaled(76)
+    skillchain_x = bar_x
+    effects_x = bar_x + bar_width + scaled(4)
+
+    force_geometry(region, region.base_x, region.base_y, width, height)
+    force_geometry(target_region, 0, -target_panel_height - target_panel_gap,
+        width, target_panel_height)
+    layout_label(columns[1], name_x, 0, name_width, column_height, scaled(8))
+    layout_label(columns[2], bar_x, 0, bar_width, column_height, scaled(8))
+    layout_label(columns[3], effects_x, 0, width - effects_x - inset, column_height, scaled(8))
+    layout_row(pinned_row, scaled(2), true)
+    local visible_rows = 0
+    for row_index, row in ipairs(rows) do
+        layout_row(row, column_height + (row_index - 1) * row_height, false)
+        if not row:is_hidden() then visible_rows = row_index end
+    end
+    footer_y = column_height + math.max(1, visible_rows) * row_height
+    layout_button(previous_button, inset, footer_y, scaled(20), scaled(16), scaled(8))
+    layout_button(next_button, previous_button:get_relative_right() + scaled(3), footer_y,
+        scaled(20), scaled(16), scaled(8))
+    layout_label(page_label, next_button:get_relative_right() + scaled(5), footer_y,
+        scaled(80), scaled(16), scaled(8))
+    region:update_absolute_position(true)
+    if pinned_row.enemy_entry then refresh_icons(pinned_row, pinned_row.enemy_entry) end
+    for _, row in ipairs(rows) do
+        if row.enemy_entry then refresh_icons(row, row.enemy_entry) end
+    end
+end
+
 function region:get_enemylist_settings()
     return {
         rows_per_page = rows_per_page,
+        ui_scale = saved_ui_scale_percent,
     }
+end
+
+function region:preview_enemylist_ui_scale(value)
+    apply_ui_scale(value)
+end
+
+function region:reset_enemylist_ui_scale_preview()
+    apply_ui_scale(saved_ui_scale_percent)
+end
+
+function region:set_enemylist_ui_scale(value)
+    value = math.max(min_ui_scale, math.min(max_ui_scale,
+        math.floor((tonumber(value) or ui_scale_percent) / 10 + 0.5) * 10))
+    apply_ui_scale(value)
+    if saved_ui_scale_percent == value then return end
+    saved_ui_scale_percent = value
+    set_character_save_setting('view_basic_enemy_list_ui_scale', ACTOR_LIB.player.name, ui_scale_key, value)
 end
 
 function region:set_enemylist_rows_per_page(value)
@@ -605,7 +806,9 @@ end)
 
 refresh()
 shared.bind_frame(region)
+shared.bind_frame(target_region)
 shared.subscribe(function()
+    pinned_row.name_label.full_text = nil
     for _, row in ipairs(rows) do row.name_label.full_text = nil end
     refresh()
 end)

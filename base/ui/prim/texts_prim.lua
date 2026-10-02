@@ -1,4 +1,5 @@
 local defaults = require('base/ui/ui_defaults')
+local renderer = require('base/ui/render_backend')
 
 texts_prim = texts_prim or {}
 local texts_meta = {}
@@ -47,34 +48,34 @@ local function apply_settings(obj)
     local s = obj.settings
     local id = obj.id
 
-    if not windower.text then return end
+    if not renderer.text then return end
 
-    windower.text.set_location(id, s.x or 0, s.y or 0)
+    renderer.text.set_location(id, s.x or 0, s.y or 0)
     if s.bg then
-        windower.text.set_bg_color(id, s.bg.alpha or 0, s.bg.red or 0, s.bg.green or 0, s.bg.blue or 0)
-        windower.text.set_bg_visibility(id, s.bg.visible ~= false)
+        renderer.text.set_bg_color(id, s.bg.alpha or 0, s.bg.red or 0, s.bg.green or 0, s.bg.blue or 0)
+        renderer.text.set_bg_visibility(id, s.bg.visible ~= false)
     end
     if s.text then
-        windower.text.set_color(id, s.text.alpha or 255, s.text.red or 255, s.text.green or 255, s.text.blue or 255)
-        windower.text.set_font(id, s.text.font or 'Arial', unpack(s.text.fonts or {}))
-        windower.text.set_font_size(id, s.text.size or 12)
-        windower.text.set_stroke_width(id, s.text.stroke and s.text.stroke.width or 0)
+        renderer.text.set_color(id, s.text.alpha or 255, s.text.red or 255, s.text.green or 255, s.text.blue or 255)
+        renderer.text.set_font(id, s.text.font or 'Arial', unpack(s.text.fonts or {}))
+        renderer.text.set_font_size(id, s.text.size or 12)
+        renderer.text.set_stroke_width(id, s.text.stroke and s.text.stroke.width or 0)
         if s.text.stroke then
-            windower.text.set_stroke_color(id,
+            renderer.text.set_stroke_color(id,
                 s.text.stroke.alpha or 255,
                 s.text.stroke.red or 0,
                 s.text.stroke.green or 0,
                 s.text.stroke.blue or 0)
         end
     end
-    windower.text.set_bg_border_size(id, s.padding or 0)
+    renderer.text.set_bg_border_size(id, s.padding or 0)
     if s.flags then
-        windower.text.set_italic(id, s.flags.italic or false)
-        windower.text.set_bold(id, s.flags.bold or false)
-        windower.text.set_right_justified(id, s.flags.right or false)
+        renderer.text.set_italic(id, s.flags.italic or false)
+        renderer.text.set_bold(id, s.flags.bold or false)
+        renderer.text.set_right_justified(id, s.flags.right or false)
         -- windower.text.set_bottom_justified(id, s.flags.bottom or false)
     end
-    windower.text.set_visibility(id, obj.visible ~= false)
+    renderer.text.set_visibility(id, obj.visible ~= false)
 end
 
 local get_line_count = function(txt)
@@ -166,7 +167,7 @@ function texts_prim.new(str, settings)
 
     obj.font_metrics = load_font_metrics(obj.settings.text.font)
 
-    windower.text.create(obj.id)
+    renderer.text.create(obj.id)
     apply_settings(obj)
 
     obj:set_text(str or '')
@@ -182,7 +183,7 @@ end
 function texts_prim.destroy(obj)
     if not obj or not obj.id then return end
     -- Als je een echte Windower text primitive hebt:
-    windower.text.delete(obj.id)
+    renderer.text.delete(obj.id)
     -- Verwijder de objecten uit de UI
     texts_store[obj.id] = nil
     -- settings en metatable opruimen
@@ -200,8 +201,8 @@ texts_meta.__index = {
         if self.settings.text.value == str then return end
         
         self.settings.text.value = str
-        if windower.text and self.id then
-            windower.text.set_text(self.id, str)
+        if renderer.text and self.id then
+            renderer.text.set_text(self.id, str)
         end
         self:update_extents()
     end,
@@ -225,7 +226,7 @@ texts_meta.__index = {
     update_pos = function(self)
         if self.id then
             local x,y = self:get_pos_raw()
-            windower.text.set_location(self.id, x, y)
+            renderer.text.set_location(self.id, x, y)
         end
     end,
     get_pos = function(self)
@@ -245,8 +246,8 @@ texts_meta.__index = {
         self.settings.text.font = font
         self.settings.text.fonts = {...}
         self.font_metrics = load_font_metrics(font)
-        if windower.text and self.id then
-            windower.text.set_font(self.id, font, ...)
+        if renderer.text and self.id then
+            renderer.text.set_font(self.id, font, ...)
         end
         self:update_extents()
     end,
@@ -257,8 +258,8 @@ texts_meta.__index = {
         if self.settings.text.size == size then return end
 
         self.settings.text.size = size
-        if windower.text and self.id then
-            windower.text.set_font_size(self.id, size)
+        if renderer.text and self.id then
+            renderer.text.set_font_size(self.id, size)
         end
         self:update_extents()
     end,
@@ -274,8 +275,8 @@ texts_meta.__index = {
         self.settings.text.green = g
         self.settings.text.blue = b
         self.settings.text.alpha = a or 255
-        if windower.text and self.id then
-            windower.text.set_color(self.id,
+        if renderer.text and self.id then
+            renderer.text.set_color(self.id,
                 self.settings.text.alpha or 255,
                 self.settings.text.red or 255,
                 self.settings.text.green or 255,
@@ -286,8 +287,8 @@ texts_meta.__index = {
         if self.settings.text.alpha == a then return end
 
         self.settings.text.alpha = a
-        if windower.text and self.id then
-            windower.text.set_color(self.id,
+        if renderer.text and self.id then
+            renderer.text.set_color(self.id,
                 self.settings.text.alpha or 255,
                 self.settings.text.red or 255,
                 self.settings.text.green or 255,
@@ -298,8 +299,8 @@ texts_meta.__index = {
         if self.settings.padding == pad then return end
 
         self.settings.padding = pad
-        if windower.text and self.id then
-            windower.text.set_bg_border_size(self.id, pad)
+        if renderer.text and self.id then
+            renderer.text.set_bg_border_size(self.id, pad)
         end
     end,
     set_bold = function(self, bold)
@@ -307,8 +308,8 @@ texts_meta.__index = {
 
         self.settings.flags = self.settings.flags or {}
         self.settings.flags.bold = bold
-        if windower.text and self.id then
-            windower.text.set_bold(self.id, bold)
+        if renderer.text and self.id then
+            renderer.text.set_bold(self.id, bold)
         end
     end,
     set_italic = function(self, italic)
@@ -316,8 +317,8 @@ texts_meta.__index = {
 
         self.settings.flags = self.settings.flags or {}
         self.settings.flags.italic = italic
-        if windower.text and self.id then
-            windower.text.set_italic(self.id, italic)
+        if renderer.text and self.id then
+            renderer.text.set_italic(self.id, italic)
         end
     end,
     set_right_justified = function(self, right)
@@ -325,12 +326,16 @@ texts_meta.__index = {
 
         self.settings.flags = self.settings.flags or {}
         self.settings.flags.right = right
-        if windower.text and self.id then
-            windower.text.set_right_justified(self.id, right)
+        if renderer.text and self.id then
+            renderer.text.set_right_justified(self.id, right)
         end
     end,
     extents = function(self)
-        return windower.text.get_extents(self.id)
+        return renderer.text.get_extents(self.id)
+    end,
+    place_after = function(self, reference)
+        local reference_id = type(reference) == 'table' and reference.id or reference
+        return renderer.place_after(self.id, reference_id)
     end,
 
     -- set_bottom_justified = function(self, bottom)
@@ -356,9 +361,9 @@ texts_meta.__index = {
         self.settings.text.stroke.green = g
         self.settings.text.stroke.blue = b
         self.settings.text.stroke.alpha = a or 255
-        if windower.text and self.id then
-            windower.text.set_stroke_width(self.id, width)
-            windower.text.set_stroke_color(self.id, a or 255, r, g, b)
+        if renderer.text and self.id then
+            renderer.text.set_stroke_width(self.id, width)
+            renderer.text.set_stroke_color(self.id, a or 255, r, g, b)
         end
     end,
     set_bg = function(self, r, g, b, a, visible)
@@ -377,9 +382,9 @@ texts_meta.__index = {
         self.settings.bg.blue = b
         self.settings.bg.alpha = a or 0
         self.settings.bg.visible = visible
-        if windower.text and self.id then
-            windower.text.set_bg_color(self.id, a or 0, r, g, b)
-            windower.text.set_bg_visibility(self.id, visible)
+        if renderer.text and self.id then
+            renderer.text.set_bg_color(self.id, a or 0, r, g, b)
+            renderer.text.set_bg_visibility(self.id, visible)
         end
     end,
     -- show = function(self)
@@ -404,9 +409,9 @@ texts_meta.__index = {
         if state == self.last_draw_visibility then return end
         self.last_draw_visibility = state
         if state == true then
-            windower.text.set_visibility(self.id, true)
+            renderer.text.set_visibility(self.id, true)
         else
-            windower.text.set_visibility(self.id, false)
+            renderer.text.set_visibility(self.id, false)
         end
     end,
 
@@ -425,7 +430,7 @@ texts_meta.__index = {
         if self.parent_id == parent.id then return end
 
         self.parent_id = parent.id
-        if windower.text and self.id then
+        if renderer.text and self.id then
             self:update_pos()
         end
     end,

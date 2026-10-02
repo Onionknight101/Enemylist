@@ -1,4 +1,5 @@
 local defaults = require('base/ui/ui_defaults')
+local renderer = require('base/ui/render_backend')
 
 images_prim = {}
 local images_store = {}
@@ -15,7 +16,7 @@ function images_methods:set_pos(x, y)
 end
 
 function images_methods:update_pos()
-    windower.prim.set_position(self.id, self:get_pos_raw())
+    renderer.image.set_position(self.id, self:get_pos_raw())
 end
 
 function images_methods:get_pos()
@@ -38,7 +39,7 @@ function images_methods:set_size(w, h)
 
     self.settings.width = w
     self.settings.height = h
-    windower.prim.set_size(self.id, w, h)
+    renderer.image.set_size(self.id, w, h)
 end
 
 function images_methods:get_size()
@@ -56,25 +57,39 @@ function images_methods:set_color(r, g, b, a)
     -- end
 
     self.settings.color = {r, g, b, a or 255}
-    windower.prim.set_color(self.id, a or 255, r, g, b)
+    renderer.image.set_color(self.id, a or 255, r, g, b)
 end
 
 function images_methods:set_path(path)
     if self.settings.path == path then return end
 
     self.settings.path = path
-    windower.prim.set_texture(self.id, path)
+    renderer.image.set_texture(self.id, path)
 end
 
 function images_methods:has_a_path()
     return self.settings.path ~= nil and self.settings.path ~= ''
 end
 
+function images_methods:is_ready()
+    return renderer.image.is_ready(self.id)
+end
+
+function images_methods:set_viewport(viewport)
+    renderer.image.set_viewport(self.id, viewport)
+end
+
 function images_methods:set_fit(fit)
     if self.settings.fit == fit then return end
 
     self.settings.fit = fit
-    windower.prim.set_fit_to_texture(self.id, fit)
+    renderer.image.set_fit_to_texture(self.id, fit)
+end
+
+function images_methods:set_effect(effect)
+    if self.settings.effect == effect then return end
+    self.settings.effect = effect
+    renderer.image.set_effect(self.id, effect)
 end
 
 -- function images_methods:show()
@@ -97,9 +112,9 @@ function images_methods:update_draw_visibility(state)
 
     self.last_draw_visibility = state
     if state == true then
-        windower.prim.set_visibility(self.id, true)
+        renderer.image.set_visibility(self.id, true)
     else
-        windower.prim.set_visibility(self.id, false)
+        renderer.image.set_visibility(self.id, false)
     end
 
     -- print('Updated draw visibility for image ', self.id, state)
@@ -114,7 +129,7 @@ function images_methods:set_parent(parent)
 end
 
 function images_methods:destroy()
-    windower.prim.delete(self.id)
+    renderer.image.delete(self.id)
     images_store[self.id] = nil
 end
 
@@ -124,7 +139,7 @@ end
 
 function images_prim.new(settings)
     local id = generate_id()
-    windower.prim.create(id)
+    renderer.image.create(id)
     local obj = {
         id = id,
         settings = settings or {},
@@ -136,7 +151,7 @@ function images_prim.new(settings)
     obj.settings.y = obj.settings.y or 0
     obj.settings.width = obj.settings.width or defaults.standard_width
     obj.settings.height = obj.settings.height or defaults.standard_height
-    windower.prim.set_size(id, obj.settings.width, obj.settings.height)
+    renderer.image.set_size(id, obj.settings.width, obj.settings.height)
 
     setmetatable(obj, {__index = images_methods})
     images_store[id] = obj

@@ -89,6 +89,7 @@ function view_settings_window.new(settings)
     end
 
     local outside_release
+    local outside_pass_through = false
     local original_mouse_event = region.mouse_event
     function region:mouse_event(type, mx, my, delta)
         if not self.visible then return false end
@@ -96,21 +97,28 @@ function view_settings_window.new(settings)
             and my >= self.y and my <= self.y + self.height
 
         if not inside then
-            if type == 1 then outside_release = 2
-            elseif type == 4 then outside_release = 5
-            elseif type == 7 then outside_release = 8
+            if type == 1 or type == 4 or type == 7 then
+                if type == 1 then outside_release = 2
+                elseif type == 4 then outside_release = 5
+                else outside_release = 8
+                end
+                -- Preserve the focus state from mouse-down. The initial click
+                -- must reach an inactive game window, and its matching release
+                -- must follow the same path after that click gives it focus.
+                outside_pass_through = windower.has_focus
+                    and not windower.has_focus() or false
             end
             if outside_release then
                 if type == outside_release then
                     outside_release = nil
                     result:hide()
                 end
-                return true, self.id
+                return not outside_pass_through, self.id
             end
         elseif outside_release and type == outside_release then
             outside_release = nil
             result:hide()
-            return true, self.id
+            return not outside_pass_through, self.id
         end
 
         return original_mouse_event(self, type, mx, my, delta)

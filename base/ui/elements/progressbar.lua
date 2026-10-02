@@ -42,6 +42,8 @@ return function(setting)
         height = height,
         visible = true,
         children = {bg, fill},
+        bg_object = bg,
+        fill_object = fill,
         val = progress,
         margin = {left = 0, right = 0, top = 0, bottom = 0},
         name = setting.name or nil,
@@ -55,6 +57,11 @@ return function(setting)
             local new_y = self.margin.top
             fill:set_pos(new_x, new_y)
             fill:set_size(new_width, h)
+        end,
+
+        on_size_change = function(self)
+            bg:set_size(self.width, self.height)
+            self:on_refresh()
         end,
 
         set_value = function(self, new_val)

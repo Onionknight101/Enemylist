@@ -46,7 +46,25 @@ function set_character_save_setting(_, _, key, value)
 end
 set_save_setting = set_character_save_setting
 
+-- Load the private runtime bundled with this standalone addon.
+DIRECT_FFXI_PATH = windower.addon_path .. 'direct_ffxi/'
+local direct_loader, direct_load_error = loadfile(DIRECT_FFXI_PATH .. 'direct_ffxi.lua')
+local direct_ok, direct_module
+if direct_loader then
+    direct_ok, direct_module = pcall(direct_loader)
+else
+    direct_ok, direct_module = false, direct_load_error
+end
+if direct_ok then
+    DIRECT_FFXI = direct_module
+else
+    DIRECT_FFXI = nil
+    DIRECT_FFXI_ERROR = tostring(direct_module)
+end
+BITMAPFONT = require('base/ui/prim/bitmap_font')
+
 ui = require('base/ui/ui')
+UI_RENDERER = ui.renderer
 MENU_UI.view_region = ui.create_imageless_region({x = 0, y = 0,
     width = windower.get_windower_settings().ui_x_res,
     height = windower.get_windower_settings().ui_y_res, draggable = false})
@@ -485,15 +503,43 @@ windower.register_event('prerender', function()
         else MENU_UI.view_region:hide() end
     end
     ui.refresh_all()
+    UI_RENDERER.flush()
 end)
-windower.register_event('addon command', function(command)
+windower.register_event('unload', function()
+    if UI_RENDERER then UI_RENDERER.shutdown() end
+end)
+windower.register_event('addon command', function(command, ...)
     command = (command or 'help'):lower()
+    local args = {...}
     if command == 'show' or command == 'hide' or command == 'toggle' then
         settings.enabled = command == 'show' or (command == 'toggle' and not settings.enabled)
         config.save(settings); MENU_UI.view_region:set_visibility(settings.enabled)
     elseif command == 'clear' then clear()
     elseif command == 'aura' then print_aura_state()
+    elseif command == 'backend' then
+        local requested = tostring(args[1] or 'status'):lower()
+        if requested == 'status' then
+            windower.add_to_chat(207, '[Enemylist] ' .. UI_RENDERER.status())
+        elseif requested == 'scale' then
+            local ok, message = UI_RENDERER.set_text_scale(args[2])
+            if ok then
+                settings.values.ui_directx_text_scale = tonumber(args[2])
+                config.save(settings)
+                windower.add_to_chat(207, ('[Enemylist] DirectX text scale: %.2f'):format(message))
+            else
+                windower.add_to_chat(167, '[Enemylist] ' .. tostring(message))
+            end
+        else
+            local ok, message = UI_RENDERER.set_mode(requested)
+            if ok then
+                settings.values.ui_renderer = requested
+                config.save(settings)
+                windower.add_to_chat(207, '[Enemylist] ' .. tostring(message))
+            else
+                windower.add_to_chat(167, '[Enemylist] ' .. tostring(message))
+            end
+        end
     elseif (command == 'style' or command == 'settings') and view then require('menu/views/shared_style').open(view)
-    else windower.add_to_chat(207, '[Enemylist] //enemylist show | hide | toggle | clear | aura | style | settings') end
+    else windower.add_to_chat(207, '[Enemylist] //enemylist show | hide | toggle | clear | aura | style | settings | backend [windower|directx|auto|status|scale <0.75-3.00>]') end
 end)
 init()
