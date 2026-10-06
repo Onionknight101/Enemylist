@@ -4,7 +4,7 @@
         local direct = require('direct_ffxi')
         local draw = direct.new('myaddon')
 
-    Ship direct_ffxi_runtime.lua, direct_ffxi_native_v19.dll and the private
+    Ship direct_ffxi_runtime.lua, direct_ffxi_native_v59.dll and the private
     native hook daemon together. Everything else is reached through the handle.
 
     This file already closes the handle on unload, ticks the library every
@@ -25,7 +25,7 @@ do
     local source = debug.getinfo(1, 'S').source
     local path = source:sub(1, 1) == '@' and source:sub(2) or source
     local directory = path:match('^(.*[\\/])') or ''
-    local dll = directory .. 'direct_ffxi_native_v19.dll'
+    local dll = directory .. 'direct_ffxi_native_v59.dll'
 
     local loader, message = package.loadlib(dll, 'luaopen_worlddraw')
     if not loader then
@@ -92,13 +92,97 @@ function direct_ffxi.ui_shader_profile()
     return native.ui_shader_profile()
 end
 
+-- DirectX framebuffer transport used by Actor's local camera wall. Pixel data
+-- stays in named shared memory and is composed by this same native renderer.
+function direct_ffxi.camera_start(character_name)
+    return native.camera_start(character_name)
+end
+
+function direct_ffxi.camera_view(enabled, x, y, width, height, count, names,
+        cover_x, cover_y, cover_width, cover_height, drag_slot, spread)
+    return native.camera_view(enabled == true, x or 0, y or 0, width or 0,
+        height or 0, count or 1, names or '', cover_x or 0, cover_y or 0,
+        cover_width or 0, cover_height or 0, drag_slot or 0, spread or 3)
+end
+
+function direct_ffxi.camera_stop()
+    return native.camera_stop()
+end
+
+function direct_ffxi.controller_state(index)
+    return native.controller_state(index or 0)
+end
+
+function direct_ffxi.controller_capture(enabled)
+    return native.controller_capture(enabled == true)
+end
+
+function direct_ffxi.controller_mapping()
+    return native.controller_mapping()
+end
+
+function direct_ffxi.draw_parts_start(pass)
+    return native.draw_parts_start(pass or 'world')
+end
+
+function direct_ffxi.draw_parts_stop()
+    return native.draw_parts_stop()
+end
+
+function direct_ffxi.draw_parts_state()
+    return native.draw_parts_state()
+end
+
+function direct_ffxi.draw_menus_visible(visible)
+    if visible == nil then return native.draw_menus_visible() end
+    return native.draw_menus_visible(visible == true)
+end
+
+function direct_ffxi.draw_parts_list()
+    return native.draw_parts_list()
+end
+
+-- Pass a stable 16-digit hexadecimal fingerprint to show matching game draws
+-- without their texture. Pass nil to clear the selection.
+function direct_ffxi.draw_parts_select(fingerprint)
+    return native.draw_parts_select(fingerprint)
+end
+
+function direct_ffxi.draw_parts_preview(visible, x, y, size)
+    return native.draw_parts_preview(visible == true, x or 0, y or 0, size or 96)
+end
+
+function direct_ffxi.draw_parts_save_texture(path)
+    return native.draw_parts_save_texture(path)
+end
+
+function direct_ffxi.draw_parts_save_status()
+    return native.draw_parts_save_status()
+end
+
+function direct_ffxi.draw_parts_replacement(enabled, path)
+    return native.draw_parts_replacement(enabled == true, path)
+end
+
+function direct_ffxi.draw_parts_replacement_status()
+    return native.draw_parts_replacement_status()
+end
+
 function direct_ffxi.crop_image(source, output, left, top, size, rotation_degrees,
         mirror_x)
-    if rotation_degrees == nil and not mirror_x then
-        return native.crop_image(source, output, left, top, size)
+    local crop = native.crop_image
+    if type(crop) ~= 'function' then
+        return false, 'unavailable'
     end
-    return native.crop_image(source, output, left, top, size,
-        rotation_degrees or 0, mirror_x == true)
+    local ok, result, reason
+    if rotation_degrees == nil and not mirror_x then
+        ok, result, reason = pcall(crop, source, output, left, top, size)
+    else
+        ok, result, reason = pcall(crop, source, output, left, top, size,
+            rotation_degrees or 0, mirror_x == true)
+    end
+    if not ok then return false, tostring(result) end
+    return result, reason
 end
 
 -- Some failures arrive long after load -- another program taking the graphics
@@ -131,6 +215,12 @@ windower.register_event('zone change', function()
 end)
 
 windower.register_event('unload', function()
+    pcall(native.camera_stop)
+    pcall(native.controller_capture, false)
+    pcall(native.draw_menus_visible, true)
+    pcall(native.draw_parts_select, nil)
+    pcall(native.draw_parts_preview, false, 0, 0, 0)
+    pcall(native.draw_parts_replacement, false)
     for i = 1, #handles do
         local handle = handles[i].handle
         pcall(handle.close, handle)

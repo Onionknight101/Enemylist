@@ -70,6 +70,25 @@ MENU_UI.view_region = ui.create_imageless_region({x = 0, y = 0,
     height = windower.get_windower_settings().ui_y_res, draggable = false})
 ui.elements:add_to_root(MENU_UI.view_region)
 local view
+local movement_breaks_debuffs = {2, 7, 19} -- Sleep, Break/petrification, Deep Sleep
+local action_breaks_debuffs = {2, 7, 10, 19, 28} -- Also Stun and Terror
+
+local function clear_incapacitating_debuffs(entry, effect_ids)
+    if not entry then return false end
+    local changed = false
+    for _, effect_id in ipairs(effect_ids) do
+        if entry.debuffs and entry.debuffs[effect_id] ~= nil then
+            entry.debuffs[effect_id] = nil
+            changed = true
+        end
+        if entry.event_debuffs and entry.event_debuffs[effect_id] ~= nil then
+            entry.event_debuffs[effect_id] = nil
+            changed = true
+        end
+    end
+    return changed
+end
+
 local function has_status(statuses, wanted)
     for _, status in pairs(statuses or {}) do
         local id = type(status) == 'table' and status.id or status
@@ -191,6 +210,12 @@ local function track(mob)
         id = mob.id, buffs = {}, aura_buffs = {}, debuffs = {},
         event_buffs = {}, event_debuffs = {},
     }
+    local moved = ACTOR_LIB.enemy[mob.id] ~= nil
+        and entry.x ~= nil and entry.y ~= nil and mob.x ~= nil and mob.y ~= nil
+        and (entry.x ~= mob.x or entry.y ~= mob.y)
+    if moved then
+        clear_incapacitating_debuffs(entry, movement_breaks_debuffs)
+    end
     entry.name, entry.index, entry.hpp = mob.name, mob.index, mob.hpp
     entry.claim, entry.status, entry.zone = mob.claim_id, mob.status, ACTOR_LIB.player.zone
     entry.x, entry.y, entry.z = mob.x, mob.y, mob.z
@@ -291,6 +316,11 @@ local function applied_debuff(spell_id, result)
     if not spell_id then return nil end
     local message = tonumber(result.message)
     if failed_debuff_messages[message] then return nil end
+    -- The action result also carries an Immunobreak modifier. Check it
+    -- independently because some packet/message variants do not expose the
+    -- usual 653/654 message through Windower's action event.
+    local modifier = tonumber(result.unknown or result._unknown) or 0
+    if bit.band(modifier, 0x04) ~= 0 then return nil end
     if tonumber(result.param) == 1 and tonumber(result.reaction) == 1 then return nil end -- blink/shadow
 
     local absorb = absorb_effects[spell_id]
@@ -393,11 +423,9 @@ windower.register_event('action', function(action)
     local source = mob_by_id(action.actor_id)
     local source_is_party = party_ids[action.actor_id]
     record_geomancy(action)
-    local source_entry
+    local source_entry = track(source)
+    clear_incapacitating_debuffs(source_entry, action_breaks_debuffs)
     for _, target in ipairs(action.targets or {}) do
-        if party_ids[target.id] then
-            source_entry = track(source) or source_entry
-        end
         local entry = ACTOR_LIB.enemy[target.id]
         if source_is_party then entry = track(mob_by_id(target.id)) or entry end
         for _, result in ipairs(target.actions or {}) do
